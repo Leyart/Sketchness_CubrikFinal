@@ -142,7 +142,11 @@ public class User extends Model implements Subject {
 
 	public static User findByUsernamePasswordIdentity(
 			final UsernamePasswordAuthUser identity) {
-		return getUsernamePasswordAuthUserFind(identity).findUnique();
+                List<User> returned = getUsernamePasswordAuthUserFind(identity).findList();
+                if(returned.size()>0)
+                    return returned.get(returned.size()-1);
+                else
+                    return null;
 	}
 
 	private static ExpressionList<User> getUsernamePasswordAuthUserFind(
@@ -185,10 +189,9 @@ public class User extends Model implements Subject {
 			// secondo me inutile e genera un NPE dopo... se sono in signup ho
 			// fatto la verifica dell esistenza della mail prima e se sono in
 			// login pure
-			// if (user.checkMail(identity.getEmail())) {
-			//
-			// return user;
-			// }
+//			 if (user.checkMail(identity.getEmail())) {
+//                            return User.findByEmail(identity.getEmail());
+//			 }
 
 			user.emailValidated = false;
 		}
@@ -363,7 +366,11 @@ public class User extends Model implements Subject {
 	}
 
 	public static User findByEmail(final String email) {
-		return getEmailUserFind(email).findUnique();
+		List<User> returned = getEmailUserFind(email).findList();
+                if(returned.size()>0)
+                    return returned.get(returned.size()-1);
+                else
+                    return null;
 	}
 
 	private static ExpressionList<User> getEmailUserFind(final String email) {

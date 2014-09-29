@@ -19,6 +19,9 @@ GET     /retrieveMask                     controllers.Utilities.retrieveMask(ima
 GET     /retrieveImages                   controllers.Utilities.retrieveImages()
 GET     /retrieveTags                     controllers.Utilities.retrieveTags(imageID: String)
 
+GET     /testCMS                     controllers.Utilities.testCMS
+GET     /cleanCMS                     controllers.Utilities.cleanCMS
+
 
 
 
@@ -45,7 +48,10 @@ GET		/CollectionAjax					  controllers.Utilities.collectionAjaxCall
 GET		/CollectionImagesAjax			  controllers.Utilities.collectionImagesAjaxCall
 GET		/MaskAjax						  controllers.Utilities.maskAjaxCall
 GET		/MaskAjaxFashionista			  controllers.Utilities.maskFashionistaAjaxCall
-GET     /retrieveMaskImage                controllers.Utilities.retrieveMaskImage(imageID: String, tag: String)
+GET     /retrieveMaskImage                controllers.Utilities.retrieveMaskImage(media: String)
+GET		/initializeSlider				  controllers.Utilities.initializeSlider
+GET		/annotationRange				  controllers.Utilities.annotationRange
+GET		/getTraces			  			  controllers.Utilities.getTraces
 
 
 # Map static resources from the /public folder to the /assets URL path
@@ -83,7 +89,7 @@ GET     /login                      controllers.Application.login
 POST    /login                      controllers.Application.doLogin
 
 GET     /logout                     controllers.Application.doLogout
-GET     /authenticate/:provider     com.feth.play.module.pa.controllers.Authenticate.authenticate(provider: String)
+GET     /authenticate/:provider     controllers.Login.authenticate(provider: String)
 
 GET     /signup                     controllers.Application.signup
 POST    /signup                     controllers.Application.doSignup

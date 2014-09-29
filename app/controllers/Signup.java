@@ -24,9 +24,12 @@ import views.html.account.signup.password_forgot;
 import views.html.account.signup.password_reset;
 import views.html.account.signup.unverified;
 
+import play.data.validation.ValidationError;
 import com.feth.play.module.pa.PlayAuthenticate;
 import com.feth.play.module.pa.providers.password.UsernamePasswordAuthProvider;
 import com.feth.play.module.pa.user.AuthUser;
+import java.util.List;
+import java.util.Map;
 import utils.LoggerUtils;
 
 public class Signup extends Controller {
@@ -84,6 +87,21 @@ public class Signup extends Controller {
 				+ filledForm.field("email").value());
 
 		if (filledForm.hasErrors()) {
+                        Map<java.lang.String,java.util.List<ValidationError>> found = filledForm.errors();
+                        Boolean passwordSet = found.containsKey("password") && filledForm.field("password").value()!="";
+                        for (Map.Entry<String, List<ValidationError>> entry : found.entrySet()) {
+                            String string = entry.getKey();
+                            if(string.equals("repeatPassword") && passwordSet) {
+                                flash().put(string, "error");
+                            }
+                            if((string.equals("password")||string.equals("repeatPassword"))
+                               &&(filledForm.field("password").value()!=filledForm.field("RepeatPassword").value())
+                               &&(filledForm.field("password").value()!=""))
+                                flash().put("passwordMismatch","error");
+                            else if(!string.equals("repeatPassword")&&!(string.equals("password")&&filledForm.field("password").value()!=""))
+                                flash().put(string, "error");
+                            LoggerUtils.info("SIGNUP",string);
+                        }
 			// User did not fill everything properly
 			LoggerUtils.info("SIGNUP","The user did not fill everything properly, return an error message:"
 					+ filledForm.toString());
@@ -108,22 +126,14 @@ public class Signup extends Controller {
 						Messages.get("error.userInBrowser"));
 				return badRequest(sketchness_login.render(filledForm));
 			}
-            // check if there is already the email registered
-            if(User.checkMail(filledForm.field("email").value())){
-                LoggerUtils.debug("SIGNUP","Email already registered: "
-                        + filledForm.field("email").value());
-                flash(Application.FLASH_ERROR_KEY,
-                        Messages.get("error.mailExists"));
-                return badRequest(sketchness_signup.render(filledForm));
-            }
+                        // check if there is already the email registered
+                        if(User.checkMail(filledForm.field("email").value())){
+                            LoggerUtils.debug("SIGNUP","Email already registered: "
+                                    + filledForm.field("email").value());
+                            flash("mailAlreadyRegistered","error");
+                            return badRequest(sketchness_signup.render(filledForm));
+                        }
 
-            if(User.checkMail(filledForm.field("email").value())){
-                LoggerUtils.debug("SIGNUP","Email already registered: "
-                        + filledForm.field("email").value());
-                flash(Application.FLASH_ERROR_KEY,
-                        Messages.get("error.mailExists"));
-                return badRequest(sketchness_signup.render(filledForm));
-            }
 			// Everything was filled
                         response().setHeader("P3P","CP=\"IDC DSP COR ADM DEVi TAIi PSA PSD IVAi IVDi CONi HIS OUR IND CNT\"");
 			return UsernamePasswordAuthProvider.handleSignup(ctx());

@@ -1,9 +1,17 @@
-require(["Class", "Chat", "StateMachine", "Communicator", "Time", "Writer", "canvas/Painter", "jquery", "nouislider", "spectrum", "i18n", "howler"],
+require(["Class", "Chat", "StateMachine", "Communicator", "Time", "Writer", "canvas/Painter", "jquery", "nouislider", "spectrum", "i18n", "howler", "snow"],
 function( Class,   Chat,   StateMachine,   Communicator,   Time,   Writer,   Painter,          $) {
 
 	$(function() {
 
 		var clock = new Time();
+
+        var animation = {
+            speed: 1,
+            size: 20,
+            count: 50,
+            image: "assets/images/sket.png",
+            timeOut: 5000
+        }
 
 		//var background_music = new Howl({
 		//	urls: ['assets/sounds/music/background.ogg']
@@ -25,7 +33,8 @@ function( Class,   Chat,   StateMachine,   Communicator,   Time,   Writer,   Pai
 			tagTime: 30,
 			taskTime: 120,
 			solutionTime: 3,
-			minSendRate: 50
+			minSendRate: 50,
+			playersColors: ['DarkGreen','OrangeRed','Purple','Blue','AliceBlue']
 		};
 
 		var elements = {
@@ -53,7 +62,13 @@ function( Class,   Chat,   StateMachine,   Communicator,   Time,   Writer,   Pai
 			viewport: $("#canvaswindows"),
 			task: $("#task"),
 			draws: $("#draws"),
-			positions: $("#positions")
+			positions: $("#positions"),
+            catSelector: $('#catSelector'),
+            catContainer: $("#catContainer"),
+            catClose: $('#catContainer-close'),
+            cat1: $('#cat1'),
+            cat2: $('#cat2'),
+            cat3: $('#cat3')
 		};
 		
 		var write = new Writer(elements, sketchness.myself);
@@ -82,6 +97,7 @@ function( Class,   Chat,   StateMachine,   Communicator,   Time,   Writer,   Pai
 		$("#size").change(function(){
 			toolChange();
 		});
+
 		
 		//Use spectrum for the color picker
 		$("#picker").spectrum({
@@ -104,6 +120,8 @@ function( Class,   Chat,   StateMachine,   Communicator,   Time,   Writer,   Pai
 							size: elements.size.val(),
 							color: elements.color.spectrum("get").toRgbString()
 						};
+			if(tool.tool=="eraser")
+				tool.color = "rgba(255,255,255,1.0)";
 			painter.setTool(tool);
 			communicator.send("changeTool", tool);
 		};
@@ -115,7 +133,7 @@ function( Class,   Chat,   StateMachine,   Communicator,   Time,   Writer,   Pai
 
 		communicator.on({
 			chat: function(e, content) {
-				chat.message(sketchness.players[content.user].name, content.message, content.user === sketchness.myself);
+				chat.message(sketchness.players[content.user].name, content.message, content.user === sketchness.myself, sketchness.players[content.user].color);
 			},
 			log: function(e, content) {
 				chat.log(content.level, content.message);
@@ -181,18 +199,20 @@ function( Class,   Chat,   StateMachine,   Communicator,   Time,   Writer,   Pai
 						    for(var i in content)
 							{
 								sk.players[content[i].user] = {
+									number : i,
 									id: content[i].user,
 									name: content[i].name,
 									img: content[i].img,
-									score: 0
+									score: 0,
+									color: constants.playersColors[i]
 								};
 							}
-							write.players(sk.players);
+							write.players(sk.players,sketchness.myself);
 						},
 						leave: function(e, content) {
 						    console.log("[RECEIVED MESSAGE] leave");
 							delete sk.players[content.user];
-							write.players(sk.players);
+							write.players(sk.players,sketchness.myself);
 						},
 						loading: function() {
 						    console.log("[RECEIVED MESSAGE] loading");
@@ -234,6 +254,8 @@ function( Class,   Chat,   StateMachine,   Communicator,   Time,   Writer,   Pai
 					this.write.top($.i18n.prop('matchstarting'));
 					elements.endSegmentation.hide();
 					elements.skip.hide();
+					elements.pen.hide();
+					elements.eraser.hide();
 					console.log("[ENTER] Loading");
 					var that = this,
 						sk = this.sketchness;
@@ -249,13 +271,15 @@ function( Class,   Chat,   StateMachine,   Communicator,   Time,   Writer,   Pai
 						    for(var i in content)
 							{
 								sk.players[content[i].user] = {
+									number : i,
 									id: content[i].user,
 									name: content[i].name,
 									img: content[i].img,
-									score: 0
+									score: 0,
+									color: constants.playersColors[i]
 								};
 							}
-							write.players(sk.players);
+							write.players(sk.players,sketchness.myself);
 						},
 						roundBegin: function(e, content) {
 						    console.log("[RECEIVED MESSAGE] roundBegin");
@@ -303,6 +327,7 @@ function( Class,   Chat,   StateMachine,   Communicator,   Time,   Writer,   Pai
 				onenterSketcher: function() {
 					var that = this;
 					console.log("[BEGIN] Sketcher");
+					clock.setTimer("round");
 					this.communicator.on({
 						tag: function() {
 						    console.log("[RECEIVED MESSAGE] tag");
@@ -357,6 +382,21 @@ function( Class,   Chat,   StateMachine,   Communicator,   Time,   Writer,   Pai
 							that.errorEvent();
 						}
 					});
+
+					//Getting the classes of the added buttons for the garments
+					$("a").unbind( "click" );
+					$("a").click(function() {
+					   var myClasses = this.classList;
+					   if(myClasses.length==2) {
+					   	  var nick = that.sketchness.myself;
+					   	  console.log("[SENDING MESSAGE] guessAttempt");
+						  that.communicator.send("guessAttempt", {
+							 user: nick,
+							 word: myClasses[1]
+						  });
+						  elements.catContainer.fadeOut();
+					   }
+					});
 				},
 
 				/**
@@ -403,9 +443,43 @@ function( Class,   Chat,   StateMachine,   Communicator,   Time,   Writer,   Pai
 					elements.pen.hide();
 					elements.eraser.hide();
 					this.write.top($.i18n.prop("asktagsketcher"));
+
 					//this.write.warnTag($.i18n.prop("warnTag"));
 					elements.skip.show();
 					elements.wordInput.show();
+					sk = this.sketchness;
+
+                    // -->MoonSUB
+                    elements.catSelector.show();
+                    elements.cat1.on('click',function(){
+                        //var top = ($(window).height()-elements.catContainer.height())/2;
+                        //$('#catContainer-wrap').css({'top' :top+'px'});
+                        elements.catClose.on('click',function(){elements.catContainer.fadeOut()});
+                        $('.icons').hide();
+                        $('#ico1').show();
+                        elements.catContainer.hide().fadeIn();
+                    });
+
+
+                    elements.cat2.on('click',function(){
+                        //var top = ($(window).height()-elements.catContainer.height())/2;
+                        //$('#catContainer-wrap').css({'top' :top+'px'});
+                        elements.catClose.on('click',function(){elements.catContainer.fadeOut()});
+                        $('.icons').hide();
+                        $('#ico2').show();
+                        elements.catContainer.hide().fadeIn();
+                    });
+
+                    elements.cat3.on('click',function(){
+                        //var top = ($(window).height()-elements.catContainer.height())/2;
+                        //$('#catContainer-wrap').css({'top' :top+'px'});
+                        elements.catClose.on('click',function(){elements.catContainer.fadeOut()});
+                        $('.icons').hide();
+                        $('#ico3').show();
+                        elements.catContainer.hide().fadeIn();
+                    });
+                    // <--MoonSUB
+
 					this.chat.disable();
 					
 					this.clock.setCountdown("tag", this.constants.tagTime * Time.second, Time.second, this.write.time.bind(this.write), this.timeUp.bind(this));
@@ -424,7 +498,7 @@ function( Class,   Chat,   StateMachine,   Communicator,   Time,   Writer,   Pai
 						leave: function(e, content) {
 						    console.log("[RECEIVED MESSAGE] leave");
                             delete sk.players[content.user];
-                            write.players(sk.players);
+                            write.players(sk.players,sketchness.myself);
                         },
                         leaderboard: function(e, content) {
                             console.log("[RECEIVED MESSAGE] leaderboard");
@@ -466,6 +540,19 @@ function( Class,   Chat,   StateMachine,   Communicator,   Time,   Writer,   Pai
 							$(this).off("keypress");
 						}
 					});
+
+					//Getting the classes of the added buttons for the garments
+                    $("a").unbind( "click" );
+					$("a").click(function() {
+					   var myClasses = this.classList;
+					   if(myClasses.length==2) {
+					   	  console.log("[SENDING MESSAGE] tag");
+						  that.communicator.send("tag", {
+								word: myClasses[1]
+						  });
+						  elements.catContainer.fadeOut();
+					   }
+					});
 				},
 
 				/**
@@ -479,6 +566,13 @@ function( Class,   Chat,   StateMachine,   Communicator,   Time,   Writer,   Pai
 					this.write.time();
 					elements.skip.hide();
 					elements.wordInput.hide();
+
+                    //-->MoonSUB
+                    elements.catContainer.hide();
+                    elements.catSelector.hide();
+                    elements.cat1.off('click');
+                    //<--MoonSUB
+
 					this.chat.enable();
 
 					this.clock.clearCountdown("tag");
@@ -499,7 +593,7 @@ function( Class,   Chat,   StateMachine,   Communicator,   Time,   Writer,   Pai
 					console.log("[BEGIN] TagWait");
 					var question = this.elements.questionMark;
 					this.painter.showImage(question.attr("src"), question.attr("rwidth"), question.attr("rheight"));
-
+					sk = this.sketchness;
 					this.clock.setCountdown("tag", this.constants.tagTime * Time.second, Time.second, this.write.time.bind(this.write), this.timeUp.bind(this));
 
 					var that = this;
@@ -512,7 +606,7 @@ function( Class,   Chat,   StateMachine,   Communicator,   Time,   Writer,   Pai
 						leave: function(e, content) {
 						    console.log("[RECEIVED MESSAGE] leave");
                             delete sk.players[content.user];
-                            write.players(sk.players);
+                            write.players(sk.players,sketchness.myself);
                         },
                         leaderboard: function(e, content) {
                             console.log("[RECEIVED MESSAGE] leaderboard");
@@ -525,6 +619,10 @@ function( Class,   Chat,   StateMachine,   Communicator,   Time,   Writer,   Pai
 						noTag: function(e, content) {
 						    console.log("[RECEIVED MESSAGE] noTag");
 							that.nextRound();
+						},
+						skipTask: function(e, content) {
+						    console.log("[RECEIVED MESSAGE] skipTask");
+							that.skipRound();
 						},
 						error: function(e, content) {
 						    console.log("[RECEIVED MESSAGE] error");
@@ -564,6 +662,7 @@ function( Class,   Chat,   StateMachine,   Communicator,   Time,   Writer,   Pai
 				onentertaskDrawing: function() {
 					var elements = this.elements;
 					elements.main.addClass("sketcher");
+
 					this.write.top($.i18n.prop("draw"), this.sketchness.word);
 					toolChange();
 					elements.skip.show();
@@ -571,6 +670,7 @@ function( Class,   Chat,   StateMachine,   Communicator,   Time,   Writer,   Pai
 					elements.eraser.show();
 					elements.hudArea.show();
 					elements.endSegmentation.hide();
+
 					this.chat.disable();
 					console.log("[BEGIN] TaskDrawing");
 					this.clock.setCountdown("task", this.constants.taskTime * Time.second, Time.second, this.write.time.bind(this.write), this.timeUp.bind(this));
@@ -597,7 +697,7 @@ function( Class,   Chat,   StateMachine,   Communicator,   Time,   Writer,   Pai
 						score: function(e, content) {
 						    console.log("[RECEIVED MESSAGE] score");
 							sk.players[content.user].score += content.score;
-
+							write.players(sk.players,sketchness.myself);
 							if(content.user == sk.myself) {
 								that.write.score(sk.players[content.user].score);
 							}
@@ -605,7 +705,7 @@ function( Class,   Chat,   StateMachine,   Communicator,   Time,   Writer,   Pai
 						leave: function(e, content) {
 						    console.log("[RECEIVED MESSAGE] leave");
                             delete sk.players[content.user];
-                            write.players(sk.players);
+                            write.players(sk.players,sketchness.myself);
                         },
                         leaderboard: function(e, content) {
                             console.log("[RECEIVED MESSAGE] leaderboard");
@@ -664,13 +764,13 @@ function( Class,   Chat,   StateMachine,   Communicator,   Time,   Writer,   Pai
 						var offsetX = 0, offsetY = 0;
 
 						// Compute the total offset
-						if (element.offsetParent !== undefined) {
+						if (typeof element.offsetParent !== 'undefined') {
 							do {
 								offsetX += element.offsetLeft;
 								offsetY += element.offsetTop;
 							} while ((element = element.offsetParent));
 						}
-						if(undefined!=event) {
+						if((typeof event != 'undefined') && (typeof event.originalEvent != 'undefined')) {
 							if(!sk.isMobile) {
 									if(event.originalEvent.type !== "mouseup")
 									  return {
@@ -806,7 +906,11 @@ function( Class,   Chat,   StateMachine,   Communicator,   Time,   Writer,   Pai
 					this.write.time();
 					elements.skip.hide();
 					elements.endSegmentation.hide();
+					elements.pen.hide();
+					elements.eraser.hide();
 					elements.hudArea.hide();
+
+
 					this.chat.enable();
 					console.log("[END] TaskDrawing");
 					this.clock.clearCountdown("task");
@@ -832,7 +936,37 @@ function( Class,   Chat,   StateMachine,   Communicator,   Time,   Writer,   Pai
 						sk = this.sketchness,
 						wordInput = this.elements.wordInput,
 						painter = this.painter;
-						
+
+                    // -->MoonSUB
+                    elements.catSelector.show();
+                    elements.cat1.on('click',function(){
+                        //var top = ($(window).height()-elements.catContainer.height())/2;
+                        //$('#catContainer-wrap').css({'top' :top+'px'});
+                        elements.catClose.on('click',function(){elements.catContainer.fadeOut()});
+                        $('.icons').hide();
+                        $('#ico1').show();
+                        elements.catContainer.hide().fadeIn();
+                    });
+
+                    elements.cat2.on('click',function(){
+                        //var top = ($(window).height()-elements.catContainer.height())/2;
+                        //$('#catContainer-wrap').css({'top' :top+'px'});
+                        elements.catClose.on('click',function(){elements.catContainer.fadeOut()});
+                        $('.icons').hide();
+                        $('#ico2').show();
+                        elements.catContainer.hide().fadeIn();
+                    });
+
+                    elements.cat3.on('click',function(){
+                        //var top = ($(window).height()-elements.catContainer.height())/2;
+                        //$('#catContainer-wrap').css({'top' :top+'px'});
+                        elements.catClose.on('click',function(){elements.catContainer.fadeOut()});
+                        $('.icons').hide();
+                        $('#ico3').show();
+                        elements.catContainer.hide().fadeIn();
+                    });
+                    // <--MoonSUB
+
 					elements.pen.hide();
 					elements.eraser.hide();
 					this.write.top($.i18n.prop('guess'));
@@ -886,13 +1020,28 @@ function( Class,   Chat,   StateMachine,   Communicator,   Time,   Writer,   Pai
                                 wordInput.hide().off("keypress");
                                 this.one("image", function(e, content) {
                                     painter.showImage(content.url, content.width, content.height);
+                                    $('#canvaswindows').prepend('<canvas id="winner" style="z-index: 10;position: absolute;width: inherit;height: inherit;"/>');
+                                    $('canvas#winner').let_it_snow({
+                                        speed: animation.speed,
+                                        size: animation.size,
+                                        count: animation.count,
+                                        image: animation.image
+
+                                    });
+
+                                    setTimeout(function(){
+                                        $('#winner').remove();
+                                    },animation.timeOut);
                                 });
+
+
+
 							}
 						},
 						score: function(e, content) {
 						    console.log("[RECEIVED MESSAGE] score");
 							sk.players[content.user].score += content.score;
-
+							write.players(sk.players,sketchness.myself);
 							if(content.user == sk.myself) {
 								that.write.score(sk.players[content.user].score);
 							}
@@ -900,7 +1049,7 @@ function( Class,   Chat,   StateMachine,   Communicator,   Time,   Writer,   Pai
 						leave: function(e, content) {
 						    console.log("[RECEIVED MESSAGE] leave");
                             delete sk.players[content.user];
-                            write.players(sk.players);
+                            write.players(sk.players,sketchness.myself);
                         },
                         leaderboard: function(e, content) {
                             console.log("[RECEIVED MESSAGE] leaderboard");
@@ -933,7 +1082,14 @@ function( Class,   Chat,   StateMachine,   Communicator,   Time,   Writer,   Pai
 					this.clock.clearCountdown("task");
 
 					this.communicator.off("timer changeTool beginPath point endPath guess guessed score leave leaderboard roundEnd skipTask");
-				},
+
+                    //-->MoonSUB
+                    elements.catContainer.hide();
+                    elements.catSelector.hide();
+                    elements.cat1.off('click');
+                    //<--MoonSUB
+
+                },
 
 				/**
 				 * Transition method between task and image viewing
@@ -954,6 +1110,7 @@ function( Class,   Chat,   StateMachine,   Communicator,   Time,   Writer,   Pai
 					console.log("[BEGIN] ImageViewing");
 					var that = this;
 					var elements = that.elements;
+					sk = this.sketchness;
 					elements.skip.hide();
 					elements.endSegmentation.hide();
 					elements.hudArea.hide();
@@ -968,7 +1125,7 @@ function( Class,   Chat,   StateMachine,   Communicator,   Time,   Writer,   Pai
 						leave: function(e, content) {
 						    console.log("[RECEIVED MESSAGE] leave");
                             delete sk.players[content.user];
-                            write.players(sk.players);
+                            write.players(sk.players,sketchness.myself);
                         },
 						leaderboard: function(e, content) {
 						    console.log("[RECEIVED MESSAGE] leaderboard");
@@ -1067,7 +1224,6 @@ function( Class,   Chat,   StateMachine,   Communicator,   Time,   Writer,   Pai
 				
 				onleavewaitRole: function() {
 					console.log("[END] LeaveWaitRole");
-					clock.setTimer("round");
 					this.communicator.off("leaderboard roundBegin");
 				}
 			}
@@ -1082,7 +1238,7 @@ function( Class,   Chat,   StateMachine,   Communicator,   Time,   Writer,   Pai
 				{ name: "beSketcher", from: ["loading", "playersWait", "waitRole", "tagInsertion", "tagWait" ], to: "Sketcher" },
 				{ name: "beGuesser", from: ["loading", "playersWait", "waitRole", "tagInsertion", "tagWait" ], to: "Guesser" },
 				{ name: "nextRound", from: ["imageViewing", "taskDrawing",  "tagInsertion", "tagWait"], to: "waitRole"},
-				{ name: "skipRound", from: ["taskGuessing", "taskDrawing", "tagInsertion"], to: "waitRole" },
+				{ name: "skipRound", from: ["taskGuessing", "taskDrawing", "tagInsertion", "tagWait"], to: "waitRole" },
 				{ name: "tag", from: "Sketcher", to: "tagInsertion" },
 				{ name: "tag", from: "Guesser", to: "tagWait" },
 				{ name: "task", from: ["Sketcher", "tagInsertion"], to: "taskDrawing" },
