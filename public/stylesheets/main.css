@@ -335,7 +335,7 @@ input#nPlayers::-webkit-outer-spin-button {
 	left: 420px;
 	position: absolute;
 	border-width: 0px;
-	top: 530px;
+	top: 520px;
 }
 
 #backToLobby:hover {
@@ -356,6 +356,28 @@ input#nPlayers::-webkit-outer-spin-button {
 	border-width: 0px;
 	top: 530px;
 }
+
+
+#backgame {
+	/*backUnpressed*/
+	width:160px;height:51px;background: url("../images/UI/lobby/lobby.png") no-repeat -800px -51px;
+
+	left:410px;
+	position:absolute;
+	border-width: 0px;
+	top:520px;
+}
+
+#backgame:hover {
+	/*backHover*/
+	width:160px;height:51px;background: url("../images/UI/lobby/lobby.png") no-repeat -800px -0px;
+}
+
+#backgame:active {
+	/*backPressed*/
+	width:140px;height:39px;background: url("../images/UI/lobby/lobby.png") no-repeat -799px -762px;
+}
+
 
 #back:hover {
 	/*backHover*/
@@ -712,11 +734,11 @@ div.avatarIcon {
 	list-style-type: none;
 	background: url('../images/favicon.png') no-repeat top left;
 	background-size: 40px 40px;
-	height: 46px;
+	height: auto;
 	width: 120px;
 	word-wrap: break-word;
 	padding-left: 40px;
-	padding-top: 10px;
+	padding-top: 25px;
 	color: black;
 	font-weight: bold;
 }
@@ -725,7 +747,7 @@ div.avatarChat {
 	list-style-type: none;
 	background: url('../images/favicon.png') no-repeat top left;
 	background-size: 20px 20px;
-	height: 46px;
+	height: auto;
 	width: 120px;
 	word-wrap: break-word;
 	padding-left: 10px;
